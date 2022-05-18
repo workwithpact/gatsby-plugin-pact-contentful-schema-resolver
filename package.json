@@ -1,5 +1,5 @@
 {
-  "name": "pact-contentful-schema-gatsby",
+  "name": "@workwithpact/pact-contentful-schema-gatsby",
   "version": "1.0.0",
   "description": "Pact's Contentful schema for Gatsby",
   "main": "index.js",
@@ -12,5 +12,14 @@
     "gatsby-plugin"
   ],
   "author": "Alex Leclair <alex@workwithpact.com>",
-  "license": "0BSD"
+  "license": "0BSD",
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/workwithpact/gatsby-plugin-pact-contentful-schema-resolver.git"
+  },
+  "bugs": {
+    "url": "https://github.com/workwithpact/gatsby-plugin-pact-contentful-schema-resolver/issues"
+  },
+  "homepage": "https://github.com/workwithpact/gatsby-plugin-pact-contentful-schema-resolver#readme"
 }
