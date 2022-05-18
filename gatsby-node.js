@@ -71,14 +71,7 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
     .filter(v => !intermediateSchema._implementationsMap[v]) //&& intermediateSchema._typeMap[`${v}Fields`])
   console.log('createResolvers!!!', contentfulTypes)
   const resolvers = {
-    'PactSectionSettingString': {
-      resolve: (source, args, context, info) => {
-        return {
-          value: "test",
-          id: "test2"
-        }
-      }
-    }
+   
   };
   contentfulTypes.forEach(type => {
     console.log('Type: ', type)
@@ -138,12 +131,50 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
               originalFieldValue
             })
             for(const [key, value] of entries) {
-              const setting = {
-                id: key,
-                value: value,
-                __typename: 'PactSectionSettingString'
+              let type = 'PactSectionSettingNode'
+              const matchingSetting = (config?.settings || []).find(setting => setting.id === key);
+              switch(matchingSetting?.type) {
+                case 'number':
+                case 'range':
+                  type = 'PactSectionSettingNumber';
+                  break;
+                case 'checkbox':
+                  type = 'PactSectionSettingBoolean';
+                  break;
+                case 'text':
+                case 'textarea':
+                case 'richtext':
+                case 'select':
+                case 'radio':
+                case 'url':
+                case 'email':
+                case 'search':
+                case 'password':
+                case 'tel':
+                case 'date':
+                case 'time':
+                case 'datetime':
+                case 'color':
+                  type = 'PactSectionSettingString';
+                  break;
               }
-              section.settings.push(setting);
+              let finalValue = value;
+              if (type === 'PactSectionSettingNode' || type === 'PactSectionSettingAsset') {
+                finalValue = await context.nodeModel.getNodeById({ id: value });
+              } else if (type === 'PactSectionSettingBoolean') {
+                finalValue = !!value
+              } 
+              else if(type === 'PactSectionSettingNumber') {
+                finalValue = parseFloat(value)
+              }
+              const currentSetting = {
+                id: key,
+                value: finalValue,
+                internal: {
+                  type
+                }
+              }
+              section.settings.push(currentSetting);
             }
             returnValues.push(section);
           }
