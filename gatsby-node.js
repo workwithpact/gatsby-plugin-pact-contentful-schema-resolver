@@ -86,6 +86,21 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
   }
   const resolvers = {
     PactSection: {
+      blocksOfType: {
+        resolve(source, args, context, info) {
+          const matchingBlocks = source.blocks.filter(block => {
+            return block && block.type === args.type
+          })
+          return matchingBlocks
+        },
+        type: ['PactSectionBlock'],
+        args: {
+          type: {
+            type: 'String!',
+            description: 'The type of block to filter by',
+          }
+        }
+      },
       setting: {
         resolve(source, args, context, info) {
           const { id } = args;
@@ -167,6 +182,51 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
     }
   };
 
+  const buildSettingValue = async ({ key, value, config, context}) => {
+    let type = 'PactSectionSettingNode'
+    switch(config?.type) {
+      case 'number':
+      case 'range':
+        type = 'PactSectionSettingNumber';
+        break;
+      case 'checkbox':
+        type = 'PactSectionSettingBoolean';
+        break;
+      case 'text':
+      case 'textarea':
+      case 'richtext':
+      case 'select':
+      case 'radio':
+      case 'url':
+      case 'email':
+      case 'search':
+      case 'password':
+      case 'tel':
+      case 'date':
+      case 'time':
+      case 'datetime':
+      case 'color':
+        type = 'PactSectionSettingString';
+        break;
+    }
+    let finalValue = value;
+    if (type === 'PactSectionSettingNode' || type === 'PactSectionSettingAsset') {
+      finalValue = await context.nodeModel.getNodeById({ id: value });
+    } else if (type === 'PactSectionSettingBoolean') {
+      finalValue = !!value
+    } 
+    else if(type === 'PactSectionSettingNumber') {
+      finalValue = parseFloat(value)
+    }
+    return {
+      id: key,
+      value: finalValue,
+      internal: {
+        type
+      }
+    }
+  }
+
   const getAllSections = async (source, context) => {
     if (knownDefinitions === null) {
       const definitions = await context.nodeModel.findAll({ type: sectionDefinitionType});
@@ -214,60 +274,27 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
       const entries = Object.entries(originalFieldValue?.settings || {})
 
       for(const [key, value] of entries) {
-        let type = 'PactSectionSettingNode'
         const matchingSetting = (config?.settings || []).find(setting => setting.id === key);
-        switch(matchingSetting?.type) {
-          case 'number':
-          case 'range':
-            type = 'PactSectionSettingNumber';
-            break;
-          case 'checkbox':
-            type = 'PactSectionSettingBoolean';
-            break;
-          case 'text':
-          case 'textarea':
-          case 'richtext':
-          case 'select':
-          case 'radio':
-          case 'url':
-          case 'email':
-          case 'search':
-          case 'password':
-          case 'tel':
-          case 'date':
-          case 'time':
-          case 'datetime':
-          case 'color':
-            type = 'PactSectionSettingString';
-            break;
-        }
-        let finalValue = value;
-        if (type === 'PactSectionSettingNode' || type === 'PactSectionSettingAsset') {
-          finalValue = await context.nodeModel.getNodeById({ id: value });
-        } else if (type === 'PactSectionSettingBoolean') {
-          finalValue = !!value
-        } 
-        else if(type === 'PactSectionSettingNumber') {
-          finalValue = parseFloat(value)
-        }
-        const currentSetting = {
-          id: key,
-          value: finalValue,
-          internal: {
-            type
-          }
-        }
+        const currentSetting = await buildSettingValue({context, key, value, config: matchingSetting});
         section.settings.push(currentSetting);
       }
       let blockIndex = 0;
       for(const block of originalFieldValue?.blocks || []) {
-        const matchingConfig = config?.blocks?.find(b => b && block && b.type === block.type);
-        section.blocks.push({
+        const matchingBlockConfig = config?.blocks?.find(b => b && block && b.type === block.type);
+        const currentBlock = {
           type: block.type || null,
-          name: matchingConfig?.name || 'Unknown',
+          name: matchingBlockConfig?.name || 'Unknown',
           settings: [],
           index: blockIndex
-        })
+        }
+
+        for(const [key, value] of Object.entries(block?.settings || {})) {
+          const matchingSetting = (matchingBlockConfig?.settings || []).find(setting => setting.id === key);
+          const currentSetting = await buildSettingValue({context, key, value, config: matchingSetting});
+          currentBlock.settings.push(currentSetting);
+        }
+
+        section.blocks.push(currentBlock)
         ++blockIndex;
       }
 
