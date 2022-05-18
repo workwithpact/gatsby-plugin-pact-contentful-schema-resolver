@@ -25,6 +25,14 @@ exports.createSchemaCustomization = ({ actions }) => {
       models: [String!]!
       configJson: String
       settings: [PactSectionSetting!]!
+      blocks: [PactSectionBlock!]
+    }
+
+    type PactSectionBlock {
+      name: String
+      type: String!
+      settings: [PactSectionSetting!]!
+      index: Int!
     }
     
     union PactSectionSetting = PactSectionSettingNumber | PactSectionSettingString | PactSectionSettingBoolean | PactSectionSettingNode
@@ -61,6 +69,8 @@ exports.createSchemaCustomization = ({ actions }) => {
   createTypes(typeDefs)
 }
 
+
+
 exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOptions) => {
   let knownDefinitions = null;
   const seenDefinitions = {};
@@ -70,108 +80,122 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
     .filter((v, i, arr) => arr.indexOf(v) === i)
     .filter(v => !intermediateSchema._implementationsMap[v]) //&& intermediateSchema._typeMap[`${v}Fields`])
 
-    const resolvers = {};
+  const resolvers = {};
+
+  const getAllSections = async (source, context) => {
+    if (knownDefinitions === null) {
+      const definitions = await context.nodeModel.findAll({ type: "ContentfulPactSectionsDefinitions"});
+      knownDefinitions = [];
+      for(const def of definitions.entries) {
+        const { title, models, id } = def;
+        if (seenDefinitions[id]) {
+          continue;
+        }
+        const config = def.config___NODE ? await context.nodeModel.getNodeById({ id: def.config___NODE }) : null;
+        knownDefinitions.push({
+          title,
+          models,
+          config,
+          id
+        });
+        seenDefinitions[id] = true;
+      }
+    }
+    const matchingDefinitions = knownDefinitions.filter(def => {
+      return def.models.find((model) => {
+        const [type, field] = `${model}`.split(':');
+        return ['*', source?.sys?.contentType?.sys?.id].includes(type) && source && source[`${field}___NODE`]
+      });
+    })
+    const returnValues = [];
+    for(const def of matchingDefinitions) {
+      const { title, models, config, id } = def;
+      const model = def.models.find((model) => {
+        const [type, field] = `${model}`.split(':');
+        return ['*', source?.sys?.contentType?.sys?.id].includes(type) && source && source[`${field}___NODE`]
+      });
+      const [type, field] = `${model}`.split(':');
+      const fieldValue = await context.nodeModel.getNodeById({ id: source[`${field}___NODE`] });
+
+      const section = {
+        id: field,
+        name: def.title,
+        models: def.models,
+        configJson: def?.config?.internal?.content || '{}',
+        settings: [],
+        blocks: []
+      }
+      const originalFieldValue = JSON.parse(fieldValue?.internal?.content || '{}');
+      const entries = Object.entries(originalFieldValue?.settings || {})
+
+      for(const [key, value] of entries) {
+        let type = 'PactSectionSettingNode'
+        const matchingSetting = (config?.settings || []).find(setting => setting.id === key);
+        switch(matchingSetting?.type) {
+          case 'number':
+          case 'range':
+            type = 'PactSectionSettingNumber';
+            break;
+          case 'checkbox':
+            type = 'PactSectionSettingBoolean';
+            break;
+          case 'text':
+          case 'textarea':
+          case 'richtext':
+          case 'select':
+          case 'radio':
+          case 'url':
+          case 'email':
+          case 'search':
+          case 'password':
+          case 'tel':
+          case 'date':
+          case 'time':
+          case 'datetime':
+          case 'color':
+            type = 'PactSectionSettingString';
+            break;
+        }
+        let finalValue = value;
+        if (type === 'PactSectionSettingNode' || type === 'PactSectionSettingAsset') {
+          finalValue = await context.nodeModel.getNodeById({ id: value });
+        } else if (type === 'PactSectionSettingBoolean') {
+          finalValue = !!value
+        } 
+        else if(type === 'PactSectionSettingNumber') {
+          finalValue = parseFloat(value)
+        }
+        const currentSetting = {
+          id: key,
+          value: finalValue,
+          internal: {
+            type
+          }
+        }
+        section.settings.push(currentSetting);
+      }
+      returnValues.push(section);
+    }
+
+    return returnValues;
+  }
 
   contentfulTypes.forEach(type => {
     resolvers[type] = {
+      section: {
+        type: 'PactSection',
+        args: {
+          id: "String!"
+        },
+        resolve: async (source, args, context, info) => {
+          const allSections = await getAllSections(source, context);
+          return (allSections || []).find(v => v.id === args.id)
+        }
+      },
       sections: {
         type: [`PactSection`],
         resolve: async (source, args, context, info) => {
-          if (knownDefinitions === null) {
-            const definitions = await context.nodeModel.findAll({ type: "ContentfulPactSectionsDefinitions"});
-            knownDefinitions = [];
-            for(const def of definitions.entries) {
-              const { title, models, id } = def;
-              if (seenDefinitions[id]) {
-                continue;
-              }
-              const config = def.config___NODE ? await context.nodeModel.getNodeById({ id: def.config___NODE }) : null;
-              knownDefinitions.push({
-                title,
-                models,
-                config,
-                id
-              });
-              seenDefinitions[id] = true;
-            }
-          }
-          const matchingDefinitions = knownDefinitions.filter(def => {
-            return def.models.find((model) => {
-              const [type, field] = `${model}`.split(':');
-              return ['*', source?.sys?.contentType?.sys?.id].includes(type) && source && source[`${field}___NODE`]
-            });
-          })
-          const returnValues = [];
-          for(const def of matchingDefinitions) {
-            const { title, models, config, id } = def;
-            const model = def.models.find((model) => {
-              const [type, field] = `${model}`.split(':');
-              return ['*', source?.sys?.contentType?.sys?.id].includes(type) && source && source[`${field}___NODE`]
-            });
-            const [type, field] = `${model}`.split(':');
-            const fieldValue = await context.nodeModel.getNodeById({ id: source[`${field}___NODE`] });
-
-            const section = {
-              id: field,
-              name: def.title,
-              models: def.models,
-              configJson: def?.config?.internal?.content || '{}',
-              settings: [],
-              blocks: []
-            }
-            const originalFieldValue = JSON.parse(fieldValue?.internal?.content || '{}');
-            const entries = Object.entries(originalFieldValue?.settings || {})
-
-            for(const [key, value] of entries) {
-              let type = 'PactSectionSettingNode'
-              const matchingSetting = (config?.settings || []).find(setting => setting.id === key);
-              switch(matchingSetting?.type) {
-                case 'number':
-                case 'range':
-                  type = 'PactSectionSettingNumber';
-                  break;
-                case 'checkbox':
-                  type = 'PactSectionSettingBoolean';
-                  break;
-                case 'text':
-                case 'textarea':
-                case 'richtext':
-                case 'select':
-                case 'radio':
-                case 'url':
-                case 'email':
-                case 'search':
-                case 'password':
-                case 'tel':
-                case 'date':
-                case 'time':
-                case 'datetime':
-                case 'color':
-                  type = 'PactSectionSettingString';
-                  break;
-              }
-              let finalValue = value;
-              if (type === 'PactSectionSettingNode' || type === 'PactSectionSettingAsset') {
-                finalValue = await context.nodeModel.getNodeById({ id: value });
-              } else if (type === 'PactSectionSettingBoolean') {
-                finalValue = !!value
-              } 
-              else if(type === 'PactSectionSettingNumber') {
-                finalValue = parseFloat(value)
-              }
-              const currentSetting = {
-                id: key,
-                value: finalValue,
-                internal: {
-                  type
-                }
-              }
-              section.settings.push(currentSetting);
-            }
-            returnValues.push(section);
-          }
-   
-          return returnValues;
+          return await getAllSections(source, context);
         },
       }
     }
