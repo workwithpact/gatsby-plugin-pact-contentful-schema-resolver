@@ -11,7 +11,7 @@
  *
  * See: https://www.gatsbyjs.com/docs/creating-a-local-plugin/#developing-a-local-plugin-that-is-outside-your-project
  */
-exports.onPreInit = () => console.log("Loaded gatsby-starter-plugin")
+exports.onPreInit = () => console.log("Loaded pact-contentful-schema-gatsby")
 
 const knownDefinitions = [];
 const knownTypes = {};
@@ -69,12 +69,10 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
     .map(type => type.substring(0, type.length - 3).split('SysContentType').shift() + '')
     .filter((v, i, arr) => arr.indexOf(v) === i)
     .filter(v => !intermediateSchema._implementationsMap[v]) //&& intermediateSchema._typeMap[`${v}Fields`])
-  console.log('createResolvers!!!', contentfulTypes)
-  const resolvers = {
-   
-  };
+
+    const resolvers = {};
+
   contentfulTypes.forEach(type => {
-    console.log('Type: ', type)
     resolvers[type] = {
       sections: {
         type: [`PactSection`],
@@ -112,10 +110,7 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
             });
             const [type, field] = `${model}`.split(':');
             const fieldValue = await context.nodeModel.getNodeById({ id: source[`${field}___NODE`] });
-            console.log({
-              fieldValue,
-              def
-            })
+
             const section = {
               id: field,
               name: def.title,
@@ -126,10 +121,7 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
             }
             const originalFieldValue = JSON.parse(fieldValue?.internal?.content || '{}');
             const entries = Object.entries(originalFieldValue?.settings || {})
-            console.log({
-              entries,
-              originalFieldValue
-            })
+
             for(const [key, value] of entries) {
               let type = 'PactSectionSettingNode'
               const matchingSetting = (config?.settings || []).find(setting => setting.id === key);
@@ -178,62 +170,12 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
             }
             returnValues.push(section);
           }
-          console.log({
-            source,
-            args,
-            context,
-            info
-          })
+   
           return returnValues;
         },
       }
     }
   });
-  console.log(resolvers)
   createResolvers(resolvers);
 };
 
-exports.onCreateNode = function onCreateNode({ actions, node }) {
-  // console.log('NODE CREATION!', node && node.internal && node.internal.type)
-  if (node?.internal?.type === 'ContentfulPactSectionsDefinitions') {
-    knownDefinitions.push(node);
-    console.log('Adding node field!')
-    actions.createNodeField({
-      node,
-      name: 'sections',
-      value: []
-    })
-    
-  } else if(node?.internal?.type === 'contentfulPactSectionsDefinitionsConfigJsonNode') {
-    try {
-      const def = knownDefinitions.find(def => def.id === node.parent)
-      if (def) {
-        def.config = JSON.parse(node.internal.content)
-      }
-    } catch(e) {
-      console.error(e)
-    }
-  } else if (node?.sys?.contentType?.sys?.id) {
-    const contentfulType = node.sys.contentType.sys.id;
-    const gatsbyType = node?.internal?.type
-    knownTypes[contentfulType] = gatsbyType;
-    actions.createNodeField({
-      node,
-      name: 'sections',
-      value: []
-    })
-  }
-}
-
-exports.setFieldsOnGraphQLNodeType = ({ type, getNodesByType }) => {
-  // console.log(`setFieldsOnGraphQLNodeType`, type);
-  const matchingDefinitions = knownDefinitions.filter(def => {
-    console.log(def)
-  });
-  return {};
-}
-
-exports.onPreBootstrap = ({ actions, createNodeId, createContentDigest }) => {
-  const { createNode } = actions
-  console.log('SOURCENODE CALLED!!!')
-}
