@@ -96,14 +96,15 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
           },
         }
       },
-      settingAsText: {
+      settingValueAsText: {
         resolve(source, args, context, info) {
           const { id } = args;
           const { settings } = source;
-          const value = settings.find(setting => setting.id === id)
-          return typeof value !== 'undefined' && value !== null ? value : null;
+          const settingValue = settings.find(setting => setting.id === id)
+          const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? `${settingValue.value}` : null;
+          return value
         },
-        type: 'PactSectionSettingString',
+        type: 'String',
         args: {
           id: {
             type: 'String!',
@@ -111,14 +112,15 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
           },
         }
       },
-      settingAsBoolean: {
+      settingValueAsBoolean: {
         resolve(source, args, context, info) {
           const { id } = args;
           const { settings } = source;
-          const value = settings.find(setting => setting.id === id)
-          return typeof value !== 'undefined' && value !== null ? !!value : null;
+          const settingValue = settings.find(setting => setting.id === id)
+          const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? !!settingValue.value : null;
+          return value
         },
-        type: 'PactSectionSettingBoolean',
+        type: 'Boolean',
         args: {
           id: {
             type: 'String!',
@@ -126,16 +128,13 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
           },
         }
       },
-      settingAsNumber: {
+      settingValueAsNumber: {
         resolve(source, args, context, info) {
           const { id } = args;
           const { settings } = source;
-          const value = settings.find(setting => setting.id === id)
-          try {
-            return typeof value !== 'undefined' && value !== null ? parseFloat(value) : null;
-          } catch (e) {
-            return null;
-          }
+          const settingValue = settings.find(setting => setting.id === id)
+          const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? parseFloat(settingValue.value) : null;
+          return isNaN(value) ? null : value
         },
         type: 'PactSectionSettingNumber',
         args: {
@@ -145,14 +144,15 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
           },
         }
       },
-      settingAsNode: {
+      settingValueAsNode: {
         resolve(source, args, context, info) {
           const { id } = args;
           const { settings } = source;
-          const value = settings.find(setting => setting.id === id)
-          return typeof value !== 'undefined' && value !== null ? value : null;
+          const settingValue = settings.find(setting => setting.id === id)
+          const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ?settingValue.value : null;
+          return value;
         },
-        type: 'PactSectionSettingNode',
+        type: 'ContentfulEntry',
         args: {
           id: {
             type: 'String!',
