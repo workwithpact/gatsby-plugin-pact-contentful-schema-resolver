@@ -131,7 +131,11 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
           const { id } = args;
           const { settings } = source;
           const value = settings.find(setting => setting.id === id)
-          return typeof value !== 'undefined' && value !== null ? parseFloat(value) : null;
+          try {
+            return typeof value !== 'undefined' && value !== null ? parseFloat(value) : null;
+          } catch (e) {
+            return null;
+          }
         },
         type: 'PactSectionSettingNumber',
         args: {
