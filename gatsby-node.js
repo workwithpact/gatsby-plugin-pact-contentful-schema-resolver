@@ -79,7 +79,11 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
     .map(type => type.substring(0, type.length - 3).split('SysContentType').shift() + '')
     .filter((v, i, arr) => arr.indexOf(v) === i)
     .filter(v => !intermediateSchema._implementationsMap[v]) //&& intermediateSchema._typeMap[`${v}Fields`])
-
+  const sectionDefinitionTypes = ['ContentfulPactSectionsDefinitions', 'ContentfulCustomFieldDefinitions'];
+  const sectionDefinitionType = sectionDefinitionTypes.find(type => contentfulTypes.includes(type));
+  if (!sectionDefinitionType) {
+    console.error(`No section definition type found. Expected one of ${sectionDefinitionTypes.join(', ')}`);
+  }
   const resolvers = {
     PactSection: {
       setting: {
@@ -165,7 +169,7 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
 
   const getAllSections = async (source, context) => {
     if (knownDefinitions === null) {
-      const definitions = await context.nodeModel.findAll({ type: "ContentfulPactSectionsDefinitions"});
+      const definitions = await context.nodeModel.findAll({ type: sectionDefinitionType});
       knownDefinitions = [];
       for(const def of definitions.entries) {
         const { title, models, id } = def;
@@ -255,6 +259,18 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
         }
         section.settings.push(currentSetting);
       }
+      let blockIndex = 0;
+      for(const block of originalFieldValue?.blocks || []) {
+        const matchingConfig = config?.blocks?.find(b => b && block && b.type === block.type);
+        section.blocks.push({
+          type: block.type || null,
+          name: matchingConfig?.name || 'Unknown',
+          settings: [],
+          index: blockIndex
+        })
+        ++blockIndex;
+      }
+
       returnValues.push(section);
     }
 
