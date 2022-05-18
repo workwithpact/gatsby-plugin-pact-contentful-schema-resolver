@@ -1,6 +1,6 @@
 {
   "name": "@workwithpact/pact-contentful-schema-gatsby",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Pact's Contentful schema for Gatsby",
   "main": "index.js",
   "scripts": {
