@@ -153,7 +153,7 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
         const { id } = args;
         const { settings } = source;
         const settingValue = settings.find(setting => setting.id === id)
-        const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ?settingValue.value : null;
+        const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? settingValue.value : null;
         return value;
       },
       type: 'ContentfulEntry',
@@ -163,8 +163,56 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
           description: 'The id of the setting to retrieve',
         },
       }
+    },
+    settingValueAsAsset: {
+      resolve(source, args, context, info) {
+        const { id } = args;
+        const { settings } = source;
+        const settingValue = settings.find(setting => setting.id === id)
+        const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? settingValue.value : null;
+        return value;
+      },
+      type: 'ContentfulAsset',
+      args: {
+        id: {
+          type: 'String!',
+          description: 'The id of the setting to retrieve',
+        },
+      }
     }
   }
+  contentfulTypes.forEach(type => {
+    const resolverName = `settingValueAs${type}`;
+    settingResolvers[resolverName] = {
+      async resolve(source, args, context, info) {
+        const { id } = args;
+        const { settings } = source;
+        const settingValue = settings.find(setting => setting.id === id)
+        const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? settingValue.value : null;
+        if (value?.contentful_id) {
+          return await context.nodeModel.findOne(
+            { 
+              type,
+              query: {
+                filter: {
+                  contentful_id: {
+                    eq: value.contentful_id
+                  }
+                }
+              }
+            });
+        }
+        return null;
+      },
+      type,
+      args: {
+        id: {
+          type: 'String!',
+          description: 'The id of the setting to retrieve',
+        },
+      }
+    };
+  });
 
   const resolvers = {
     PactSectionBlock: {
@@ -216,10 +264,24 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
       case 'color':
         type = 'PactSectionSettingString';
         break;
+      case 'image_picker':
+      case 'asset':
+        type = 'PactSectionSettingAsset';
+        break;
+      default:
+        type = 'PactSectionSettingNode';
     }
     let finalValue = value;
+
     if (type === 'PactSectionSettingNode' || type === 'PactSectionSettingAsset') {
-      finalValue = await context.nodeModel.getNodeById({ id: value });
+      const contentfulId = `${value}`.split('/').pop() || 'BOGUS'
+      finalValue = await context.nodeModel.findOne({ type: type === 'PactSectionSettingAsset' ? 'ContentfulAsset' : 'ContentfulEntry', query: {
+        filter: {
+          contentful_id: {
+            eq: contentfulId
+          }
+        }
+      } });
     } else if (type === 'PactSectionSettingBoolean') {
       finalValue = !!value
     } 
