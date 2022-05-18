@@ -80,7 +80,84 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
     .filter((v, i, arr) => arr.indexOf(v) === i)
     .filter(v => !intermediateSchema._implementationsMap[v]) //&& intermediateSchema._typeMap[`${v}Fields`])
 
-  const resolvers = {};
+  const resolvers = {
+    PactSection: {
+      setting: {
+        resolve(source, args, context, info) {
+          const { id } = args;
+          const { settings } = source;
+          return settings.find(setting => setting.id === id);
+        },
+        type: 'PactSectionSetting',
+        args: {
+          id: {
+            type: 'String!',
+            description: 'The id of the setting to retrieve',
+          },
+        }
+      },
+      settingAsText: {
+        resolve(source, args, context, info) {
+          const { id } = args;
+          const { settings } = source;
+          const value = settings.find(setting => setting.id === id)
+          return typeof value !== 'undefined' && value !== null ? value : null;
+        },
+        type: 'PactSectionSettingString',
+        args: {
+          id: {
+            type: 'String!',
+            description: 'The id of the setting to retrieve',
+          },
+        }
+      },
+      settingAsBoolean: {
+        resolve(source, args, context, info) {
+          const { id } = args;
+          const { settings } = source;
+          const value = settings.find(setting => setting.id === id)
+          return typeof value !== 'undefined' && value !== null ? !!value : null;
+        },
+        type: 'PactSectionSettingBoolean',
+        args: {
+          id: {
+            type: 'String!',
+            description: 'The id of the setting to retrieve',
+          },
+        }
+      },
+      settingAsNumber: {
+        resolve(source, args, context, info) {
+          const { id } = args;
+          const { settings } = source;
+          const value = settings.find(setting => setting.id === id)
+          return typeof value !== 'undefined' && value !== null ? parseFloat(value) : null;
+        },
+        type: 'PactSectionSettingNumber',
+        args: {
+          id: {
+            type: 'String!',
+            description: 'The id of the setting to retrieve',
+          },
+        }
+      },
+      settingAsNode: {
+        resolve(source, args, context, info) {
+          const { id } = args;
+          const { settings } = source;
+          const value = settings.find(setting => setting.id === id)
+          return typeof value !== 'undefined' && value !== null ? value : null;
+        },
+        type: 'PactSectionSettingNode',
+        args: {
+          id: {
+            type: 'String!',
+            description: 'The id of the setting to retrieve',
+          },
+        }
+      },
+    }
+  };
 
   const getAllSections = async (source, context) => {
     if (knownDefinitions === null) {
