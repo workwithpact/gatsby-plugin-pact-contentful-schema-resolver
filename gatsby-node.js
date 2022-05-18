@@ -84,8 +84,94 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
   if (!sectionDefinitionType) {
     console.error(`No section definition type found. Expected one of ${sectionDefinitionTypes.join(', ')}`);
   }
+
+  const settingResolvers = {
+    setting: {
+      resolve(source, args, context, info) {
+        const { id } = args;
+        const { settings } = source;
+        return settings.find(setting => setting.id === id);
+      },
+      type: 'PactSectionSetting',
+      args: {
+        id: {
+          type: 'String!',
+          description: 'The id of the setting to retrieve',
+        },
+      }
+    },
+    settingValueAsText: {
+      resolve(source, args, context, info) {
+        const { id } = args;
+        const { settings } = source;
+        const settingValue = settings.find(setting => setting.id === id)
+        const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? `${settingValue.value}` : null;
+        return value
+      },
+      type: 'String',
+      args: {
+        id: {
+          type: 'String!',
+          description: 'The id of the setting to retrieve',
+        },
+      }
+    },
+    settingValueAsBoolean: {
+      resolve(source, args, context, info) {
+        const { id } = args;
+        const { settings } = source;
+        const settingValue = settings.find(setting => setting.id === id)
+        const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? !!settingValue.value : null;
+        return value
+      },
+      type: 'Boolean',
+      args: {
+        id: {
+          type: 'String!',
+          description: 'The id of the setting to retrieve',
+        },
+      }
+    },
+    settingValueAsNumber: {
+      resolve(source, args, context, info) {
+        const { id } = args;
+        const { settings } = source;
+        const settingValue = settings.find(setting => setting.id === id)
+        const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? parseFloat(settingValue.value) : null;
+        return isNaN(value) ? null : value
+      },
+      type: 'PactSectionSettingNumber',
+      args: {
+        id: {
+          type: 'String!',
+          description: 'The id of the setting to retrieve',
+        },
+      }
+    },
+    settingValueAsNode: {
+      resolve(source, args, context, info) {
+        const { id } = args;
+        const { settings } = source;
+        const settingValue = settings.find(setting => setting.id === id)
+        const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ?settingValue.value : null;
+        return value;
+      },
+      type: 'ContentfulEntry',
+      args: {
+        id: {
+          type: 'String!',
+          description: 'The id of the setting to retrieve',
+        },
+      }
+    }
+  }
+
   const resolvers = {
+    PactSectionBlock: {
+      ...settingResolvers
+    },
     PactSection: {
+      ...settingResolvers,
       blocksOfType: {
         resolve(source, args, context, info) {
           const matchingBlocks = source.blocks.filter(block => {
@@ -99,84 +185,6 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
             type: 'String!',
             description: 'The type of block to filter by',
           }
-        }
-      },
-      setting: {
-        resolve(source, args, context, info) {
-          const { id } = args;
-          const { settings } = source;
-          return settings.find(setting => setting.id === id);
-        },
-        type: 'PactSectionSetting',
-        args: {
-          id: {
-            type: 'String!',
-            description: 'The id of the setting to retrieve',
-          },
-        }
-      },
-      settingValueAsText: {
-        resolve(source, args, context, info) {
-          const { id } = args;
-          const { settings } = source;
-          const settingValue = settings.find(setting => setting.id === id)
-          const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? `${settingValue.value}` : null;
-          return value
-        },
-        type: 'String',
-        args: {
-          id: {
-            type: 'String!',
-            description: 'The id of the setting to retrieve',
-          },
-        }
-      },
-      settingValueAsBoolean: {
-        resolve(source, args, context, info) {
-          const { id } = args;
-          const { settings } = source;
-          const settingValue = settings.find(setting => setting.id === id)
-          const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? !!settingValue.value : null;
-          return value
-        },
-        type: 'Boolean',
-        args: {
-          id: {
-            type: 'String!',
-            description: 'The id of the setting to retrieve',
-          },
-        }
-      },
-      settingValueAsNumber: {
-        resolve(source, args, context, info) {
-          const { id } = args;
-          const { settings } = source;
-          const settingValue = settings.find(setting => setting.id === id)
-          const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ? parseFloat(settingValue.value) : null;
-          return isNaN(value) ? null : value
-        },
-        type: 'PactSectionSettingNumber',
-        args: {
-          id: {
-            type: 'String!',
-            description: 'The id of the setting to retrieve',
-          },
-        }
-      },
-      settingValueAsNode: {
-        resolve(source, args, context, info) {
-          const { id } = args;
-          const { settings } = source;
-          const settingValue = settings.find(setting => setting.id === id)
-          const value = settingValue && typeof settingValue.value !== 'undefined' && settingValue.value !== null ?settingValue.value : null;
-          return value;
-        },
-        type: 'ContentfulEntry',
-        args: {
-          id: {
-            type: 'String!',
-            description: 'The id of the setting to retrieve',
-          },
         }
       },
     }
