@@ -283,10 +283,10 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
         }
       } });
     } else if (type === 'PactSectionSettingBoolean') {
-      finalValue = !!value
+      finalValue = !!finalValue
     } 
     else if(type === 'PactSectionSettingNumber') {
-      finalValue = parseFloat(value)
+      finalValue = parseFloat(finalValue)
     }
     return {
       id: key,
@@ -341,13 +341,14 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
         blocks: []
       }
       const originalFieldValue = JSON.parse(fieldValue?.internal?.content || '{}');
-      const entries = Object.entries(originalFieldValue?.settings || {})
-
-      for(const [key, value] of entries) {
-        const matchingSetting = (config?.settings || []).find(setting => setting.id === key);
-        const currentSetting = await buildSettingValue({context, key, value, config: matchingSetting});
+      const settings = (config?.settings || []).filter(setting => setting.id)
+      for (const setting of settings) {
+        const originalValue = (originalFieldValue?.settings || {})[setting.id];
+        const value = typeof originalValue === 'undefined' || originalValue === null ? setting.default || null : originalValue;
+        const currentSetting = await buildSettingValue({context, key: setting.id, value, config: setting});
         section.settings.push(currentSetting);
       }
+
       let blockIndex = 0;
       for(const block of originalFieldValue?.blocks || []) {
         const matchingBlockConfig = config?.blocks?.find(b => b && block && b.type === block.type);
