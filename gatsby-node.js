@@ -359,9 +359,10 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
           index: blockIndex
         }
 
-        for(const [key, value] of Object.entries(block?.settings || {})) {
-          const matchingSetting = (matchingBlockConfig?.settings || []).find(setting => setting.id === key);
-          const currentSetting = await buildSettingValue({context, key, value, config: matchingSetting});
+        for(const matchingSetting of (matchingBlockConfig?.settings || []).filter(s => s.id)) {
+          const originalValue = (block.settings || {})[matchingSetting.id];
+          const value = typeof originalValue === 'undefined' || originalValue === null ? matchingSetting.default || null : originalValue;
+          const currentSetting = await buildSettingValue({context, key: matchingSetting.id, value, config: matchingSetting});
           currentBlock.settings.push(currentSetting);
         }
 
