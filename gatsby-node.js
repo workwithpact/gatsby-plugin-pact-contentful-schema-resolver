@@ -325,52 +325,54 @@ exports.createResolvers = ({ createResolvers, intermediateSchema }, pluginOption
     const returnValues = [];
     for(const def of matchingDefinitions) {
       const { title, models, config, id } = def;
-      const model = def.models.find((model) => {
+      const matchingModels = def.models.filter((model) => {
         const [type, field] = `${model}`.split(':');
         return ['*', source?.sys?.contentType?.sys?.id].includes(type) && source && source[`${field}___NODE`]
       });
-      const [type, field] = `${model}`.split(':');
-      const fieldValue = await context.nodeModel.getNodeById({ id: source[`${field}___NODE`] });
+      for(const model of matchingModels) {
+        const [type, field] = `${model}`.split(':');
+        const fieldValue = await context.nodeModel.getNodeById({ id: source[`${field}___NODE`] });
 
-      const section = {
-        id: field,
-        name: def.title,
-        models: def.models,
-        configJson: def?.config?.internal?.content || '{}',
-        settings: [],
-        blocks: []
-      }
-      const originalFieldValue = JSON.parse(fieldValue?.internal?.content || '{}');
-      const settings = (config?.settings || []).filter(setting => setting.id)
-      for (const setting of settings) {
-        const originalValue = (originalFieldValue?.settings || {})[setting.id];
-        const value = typeof originalValue === 'undefined' || originalValue === null ? setting.default || null : originalValue;
-        const currentSetting = await buildSettingValue({context, key: setting.id, value, config: setting});
-        section.settings.push(currentSetting);
-      }
-
-      let blockIndex = 0;
-      for(const block of originalFieldValue?.blocks || []) {
-        const matchingBlockConfig = config?.blocks?.find(b => b && block && b.type === block.type);
-        const currentBlock = {
-          type: block.type || null,
-          name: matchingBlockConfig?.name || 'Unknown',
+        const section = {
+          id: field,
+          name: def.title,
+          models: def.models,
+          configJson: def?.config?.internal?.content || '{}',
           settings: [],
-          index: blockIndex
+          blocks: []
+        }
+        const originalFieldValue = JSON.parse(fieldValue?.internal?.content || '{}');
+        const settings = (config?.settings || []).filter(setting => setting.id)
+        for (const setting of settings) {
+          const originalValue = (originalFieldValue?.settings || {})[setting.id];
+          const value = typeof originalValue === 'undefined' || originalValue === null ? setting.default || null : originalValue;
+          const currentSetting = await buildSettingValue({context, key: setting.id, value, config: setting});
+          section.settings.push(currentSetting);
         }
 
-        for(const matchingSetting of (matchingBlockConfig?.settings || []).filter(s => s.id)) {
-          const originalValue = (block.settings || {})[matchingSetting.id];
-          const value = typeof originalValue === 'undefined' || originalValue === null ? matchingSetting.default || null : originalValue;
-          const currentSetting = await buildSettingValue({context, key: matchingSetting.id, value, config: matchingSetting});
-          currentBlock.settings.push(currentSetting);
+        let blockIndex = 0;
+        for(const block of originalFieldValue?.blocks || []) {
+          const matchingBlockConfig = config?.blocks?.find(b => b && block && b.type === block.type);
+          const currentBlock = {
+            type: block.type || null,
+            name: matchingBlockConfig?.name || 'Unknown',
+            settings: [],
+            index: blockIndex
+          }
+
+          for(const matchingSetting of (matchingBlockConfig?.settings || []).filter(s => s.id)) {
+            const originalValue = (block.settings || {})[matchingSetting.id];
+            const value = typeof originalValue === 'undefined' || originalValue === null ? matchingSetting.default || null : originalValue;
+            const currentSetting = await buildSettingValue({context, key: matchingSetting.id, value, config: matchingSetting});
+            currentBlock.settings.push(currentSetting);
+          }
+
+          section.blocks.push(currentBlock)
+          ++blockIndex;
         }
 
-        section.blocks.push(currentBlock)
-        ++blockIndex;
+        returnValues.push(section);
       }
-
-      returnValues.push(section);
     }
 
     return returnValues;
